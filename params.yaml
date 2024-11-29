@@ -1,0 +1,134 @@
+################################
+# -- TRAIN --
+################################
+# choices:                      [distance, semantic, motion, detection,
+#                                distance_semantic, detection_semantic, distance_semantic_motion,
+#                                distance_semantic_detection, distance_semantic_detection_motion]
+train: semantic #distance_semantic_detection_motion
+
+dataset_dir: data/WoodScape_ICCV19
+train_file: data/train.txt
+val_file: data/val.txt
+test_file: data/test.txt
+
+# Path to save images, model weights of training
+output_directory: onnx_out/
+
+
+# gt_file_name
+# gtlabel_dir: data/WoodScape_ICCV19/test1004/test_gtlabels
+gtlabel_dir: data/WoodScape_ICCV19/test_data/seg
+
+
+################################
+# -- MODEL CONFIGS --
+################################
+model_name: res18_baseline      # Writers will be written based on the model name
+dataset: woodscape_raw          # woodscape_raw: FV (544 x 288) (1088 x 576)
+input_height: 288               # network input height choose from the above options
+input_width: 544                # network input width choose from the above options
+
+################################
+network_layers: 18              # Number of layers in resnet encoder arch [18, 50]
+#pose_network_layers: 18         # Number of layers for posenet encoder in resnet arch [18, 50]
+frame_idxs: [0] #[0, -1]             # frames to load in temporal order [t, t-1]
+#pose_model_type: separate       # shared or separate encoder for posenet [shared, separate]
+#pose_model_input: pairs         # how many images the pose network gets [pairs, all]
+#rotation_mode: euler            # [euler, quat] euler (yaw,pitch,roll) or quat (last 3 coefficients)
+num_scales: 4                   # Number of scales for the input dyadic pyramid image
+crop: False #True                      # if set, crops the car hood appropriately for all the datasets
+#disable_auto_mask: False        # if set, disables the dynamic mask
+#ego_mask: True                  # out of bound mask according to vid2depth
+
+#############################################
+# -- DISTANCE ESTIMATION LOSS WEIGHT FACTORS --
+#############################################
+reconstr_weight: 0.15           # L1 loss weight
+ssim_weight: 0.85               # Photometric loss weight
+smooth_weight: 0.001            # Smoothness loss weight
+clip_loss_weight: 0.5           # Clip loss weight
+
+################################
+# --SEMANTIC & MOTION--
+################################
+semantic_num_classes: 4 #4 #4 #10        # Number of classes to predict
+semantic_loss: focal_loss       # choices: [cross_entropy, focal_loss]
+semantic_class_weighting: lens_soiling #woodscape_enet # [woodscape_enet, woodscape_mfb ]
+
+#motion_class_weighting: motion_enet  # [motion_enet, motion_mfb ]
+#motion_loss: focal_loss              # choices: [cross_entropy, focal_loss]
+siamese_net: False #True                    # if set uses siamese net which takes single frame t, t+1 and shared encoder
+
+#############################
+# --DETECTION--
+#############################
+#num_classes_detection: 5    # should be set according to number of classes in the data-set
+#classes_names: ['vehicles', 'person', 'bicycle', 'traffic_sign', 'traffic_light']
+#detection_conf_thres: 0.8
+#detection_nms_thres: 0.2
+## The anchors should be updated according to the training data-set using generate_anchors.py
+#anchors1: [[24, 45], [28, 24], [50, 77]]
+#anchors2: [[52, 39], [92, 145], [101, 69]]
+#anchors3: [[52, 39], [92, 145], [101, 69]]
+
+#############################
+# -- TRAIN OPTIONS --
+#############################
+batch_size: 16 #22                # training size of the model
+num_workers: 2 #6                # Data loader workers
+epochs: 125                   # number of epochs
+learning_rate: 0.0001         # learning rate of the model
+scheduler_step_size: [100, 110] # step size of the scheduler
+min_distance: 0.1             # scales sigmoid output in the range [0, 1] to a minimum distance value
+max_distance: 100.0           # scales sigmoid output in the range [0, 1] to a maximum distance value
+
+#############################
+# -- LOGGING OPTIONS --
+#############################
+log_frequency: 300           # number of batches between each tensorboard log
+val_frequency: 300           # step frequency at which validation takes place
+save_frequency: 20           # number of epochs between each save
+
+#############################
+# -- Class_weights.py --
+#############################
+weighing: enet               # choices = [mfb, enet] weighing technique for generating class weights
+num_classes: 10
+
+###########################
+# -- PRE_TRAINED CONFIG --
+###########################
+# Pre-trained weights folder path of trained models to resume training and for testing
+# /path/to/the/pre-trained/weights/res18
+pretrained_weights: res18
+
+# choices: ["encoder", "norm", "pose_encoder", "pose", "semantic", "motion", "detection"]
+models_to_load:  ["semantic"] #["detection"] #["semantic"] #["encoder", "detection"]
+
+##############################
+# -- ONNX MODEL EXPORT --
+##############################
+# choices:                    [normnet, semantic, motion, detection, omnidet, posenet]
+onnx_model: semantic #omnidet           # choose a specific model from above to export onnx model
+opset_version: 12             # onnx 1.10.1
+model_summary: False #False #True           # if set, prints keras type in-detail model summary
+init_weights: True #False #True            # if set, inits pre-trained weights for the ONNX graph
+video_name: norm              # name of the video for qualitative analysis
+#
+# trained model weights path to create the onnx model
+# /path/to/the/pre-trained/weights/res18
+model_path: res18_out #res18_out_221027 #res18_out_221027_1 #res18_out
+# /path/to/save/onnx-model/export/
+onnx_export_path: onnx_out #onnx_out/221031
+#
+# load the onnx model and verify the output using verify_onnx_models
+# /path/to/saved/onnx-model/export/res18/onnx/omnidet_float32_opset12.onnx
+#onnx_load_model: res18/onnx/omnidet_float32_opset12.onnx
+#
+####################################################
+# -- CUDA --
+#############################
+device: 'cuda:0'             # choose cpu or cuda:0 device
+cuda_visible_devices: "0"    # To forcefully run the model on CPU set -1 else set string value to 0
+use_multiple_gpu: False      # Data parallelism
+########################################################################################################################
